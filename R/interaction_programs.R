@@ -103,6 +103,21 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
     if (is.null(cell_types)) {
       warning("We recommend setting a cell_types parameter so that all cell types are included in each sequence of TOM generation")
     }
+    if(tree.cut.quantile == 0.4){
+      m = 1
+    } else if(tree.cut.quantile == 0.5){
+      m = 2
+    } else if(tree.cut.quantile == 0.6){
+      m = 3
+    } else if(tree.cut.quantile == 0.7){
+      m = 4
+    } else if(tree.cut.quantile == 0.8){
+      m = 5
+    } else if(tree.cut.quantile == 0.9){
+      m = 6
+    } else{
+      m = sample(1:10000, 1)
+    }
     mat_list <- lapply(seq_along(1:n.rep), function(z) {
 
       ## (1) Subsample proportional to cell type ##
