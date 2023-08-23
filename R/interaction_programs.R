@@ -106,15 +106,15 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
     if(tree.cut.quantile == 0.4){
       m = 1
     } else if(tree.cut.quantile == 0.5){
-      m = 2
+      m = 100
     } else if(tree.cut.quantile == 0.6){
-      m = 3
+      m = 200
     } else if(tree.cut.quantile == 0.7){
-      m = 4
+      m = 300
     } else if(tree.cut.quantile == 0.8){
-      m = 5
+      m = 400
     } else if(tree.cut.quantile == 0.9){
-      m = 6
+      m =500
     } else{
       m = sample(1:10000, 1)
     }
@@ -135,7 +135,7 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
           row.names(cell_specific_tmp) = cell_specific_tmp$cell
           prop_use = cell_specific_tmp[,"prop"][1]
 
-          set.seed(z)
+          set.seed((z + m))
           cells = c(cells, row.names(cell_specific_tmp)[sample(1:nrow(cell_specific_tmp),prop_use) ])
         }
 
