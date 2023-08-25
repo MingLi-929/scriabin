@@ -128,7 +128,7 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
                                                                                             n()/nrow(.)))) %>% dplyr::mutate(prop = as.numeric(ifelse(prop <
                                                                                                                                                         min.cell, min.cell, prop))) %>% group_by(var)
         cells_tmp = as.data.frame(cells_tmp)
-
+        cells_tmp$var = factor(cells_tmp$var)
         cells <- c()
         for(tmp_cell in 1:length(levels(cells_tmp$var))){
           cell_specific_tmp = cells_tmp[cells_tmp$var == levels(cells_tmp$var)[tmp_cell],]
@@ -159,7 +159,19 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
       b <- as.matrix(cell.exprs.rec[,3:ncol(cell.exprs.rec)])
       b[is.na(b)] <- 0
 
-      m <- sqrt(as.sparse((pbsapply(1:nrow(a), function(i) tcrossprod(a[i, ], b[i, ])))))
+      #stolen from kholmato https://github.com/BlishLab/scriabin/pull/10/commits/4fa009fbb1f5efab3cff0dbb976a9f87beb455a6
+      sv.cbind <- function (input) {
+        # stolen from https://stackoverflow.com/a/30089750
+        thelength <- unique(sapply(input,length))
+        stopifnot( length(thelength)==1 )
+        return( sparseMatrix(
+          x=unlist(lapply(input, function(s) slot(s, "x"))),
+          i=unlist(lapply(input, function(s) slot(s, "i"))),
+          p=c(0,cumsum(sapply(input,function(x){length(x@x)}))),
+          dims=c(thelength,length(input))
+        ) )
+      }
+      m <- sqrt(sv.cbind(pblapply(1:nrow(a), function(i) as(as.numeric(tcrossprod(a[i, ], b[i, ])), "dsparseVector"))))
       colnames(m) <- paste(cell.exprs.lig$ligands, cell.exprs.rec$recepts, sep = "=")
       cna <- rep(colnames(a),ncol(a))
       cnb <- rep(colnames(a),each=ncol(a))
