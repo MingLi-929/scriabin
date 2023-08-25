@@ -26,7 +26,7 @@
 #' @param r2_cutoff The softPower will be chosen as the minimum value that satisfies a scale-free topology fitting index (R^2) of r2_cutoff (by default: 0.6)
 #' @param cell_types `meta.data` column name corresponding to cell types or clusters. If iteratively approximating the TOM, when specified the sequences of subsampled CCIM will be sampled proportionally to annotations present in this grouping.
 #' @param min.cell When `cell_types` is specified, the minimum number of cells in a cell type that will be included when generating each iterative CCIM (default: 3)
-#'
+#' @param lit_support Numeric. Only entries with curation_effort (number of unique database - citation pairs per interaction) greater than or equal to this value are retained. Default 7.
 #' @return When return.mat = T, returns a list of length 4 containing ligand-receptor covariance matrix, TOM, module lists, and intramodular connectivity. Otherwise, returns a list of length 2 containing only module lists and intramodular connectivity.
 #' @import qlcMatrix WGCNA flashClust dynamicTreeCut reshape2 pbapply
 #' @export
@@ -42,7 +42,7 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
                                 min.size = 5, plot.mods = F,
                                 tree.cut.quantile = 0.4,
                                 threads = NULL, cell_types = NULL,
-                                min.cell = 3) {
+                                min.cell = 3, lit_support = 7) {
   if(database=="custom") {
     if(is.null(ligands) | is.null(recepts)) {
       stop("To use custom database, please supply equidimensional character vectors of ligands and recepts")
@@ -54,7 +54,7 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
   } else if((!is.null(ligands) | !is.null(recepts)) & database != "custom") {
     stop("To use custom ligand or receptor lists, set database = 'custom'")
   } else {
-    lit.put <- scriabin::LoadLR(species = species, database = database)
+    lit.put <- scriabin::LoadLR(species = species, database = database, lit_support= lit_support)
     ligands <- as.character(lit.put[, "source_genesymbol"])
     recepts <- as.character(lit.put[, "target_genesymbol"])
   }
@@ -103,6 +103,21 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
     if (is.null(cell_types)) {
       warning("We recommend setting a cell_types parameter so that all cell types are included in each sequence of TOM generation")
     }
+    if(tree.cut.quantile == 0.4){
+      m = 1
+    } else if(tree.cut.quantile == 0.5){
+      m = 100
+    } else if(tree.cut.quantile == 0.6){
+      m = 200
+    } else if(tree.cut.quantile == 0.7){
+      m = 300
+    } else if(tree.cut.quantile == 0.8){
+      m = 400
+    } else if(tree.cut.quantile == 0.9){
+      m =500
+    } else{
+      m = sample(1:10000, 1)
+    }
     mat_list <- lapply(seq_along(1:n.rep), function(z) {
 
       ## (1) Subsample proportional to cell type ##
@@ -113,14 +128,14 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
                                                                                             n()/nrow(.)))) %>% dplyr::mutate(prop = as.numeric(ifelse(prop <
                                                                                                                                                         min.cell, min.cell, prop))) %>% group_by(var)
         cells_tmp = as.data.frame(cells_tmp)
-
+        cells_tmp$var = factor(cells_tmp$var)
         cells <- c()
         for(tmp_cell in 1:length(levels(cells_tmp$var))){
           cell_specific_tmp = cells_tmp[cells_tmp$var == levels(cells_tmp$var)[tmp_cell],]
           row.names(cell_specific_tmp) = cell_specific_tmp$cell
           prop_use = cell_specific_tmp[,"prop"][1]
 
-          set.seed(z)
+          set.seed((z + m))
           cells = c(cells, row.names(cell_specific_tmp)[sample(1:nrow(cell_specific_tmp),prop_use) ])
         }
 
@@ -144,7 +159,19 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
       b <- as.matrix(cell.exprs.rec[,3:ncol(cell.exprs.rec)])
       b[is.na(b)] <- 0
 
-      m <- sqrt(as.sparse((pbsapply(1:nrow(a), function(i) tcrossprod(a[i, ], b[i, ])))))
+      #stolen from kholmato https://github.com/BlishLab/scriabin/pull/10/commits/4fa009fbb1f5efab3cff0dbb976a9f87beb455a6
+      sv.cbind <- function (input) {
+        # stolen from https://stackoverflow.com/a/30089750
+        thelength <- unique(sapply(input,length))
+        stopifnot( length(thelength)==1 )
+        return( sparseMatrix(
+          x=unlist(lapply(input, function(s) slot(s, "x"))),
+          i=unlist(lapply(input, function(s) slot(s, "i"))),
+          p=c(0,cumsum(sapply(input,function(x){length(x@x)}))),
+          dims=c(thelength,length(input))
+        ) )
+      }
+      m <- sqrt(sv.cbind(pblapply(1:nrow(a), function(i) as(as.numeric(tcrossprod(a[i, ], b[i, ])), "dsparseVector"))))
       colnames(m) <- paste(cell.exprs.lig$ligands, cell.exprs.rec$recepts, sep = "=")
       cna <- rep(colnames(a),ncol(a))
       cnb <- rep(colnames(a),each=ncol(a))
