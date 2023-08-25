@@ -26,7 +26,7 @@
 #' @param r2_cutoff The softPower will be chosen as the minimum value that satisfies a scale-free topology fitting index (R^2) of r2_cutoff (by default: 0.6)
 #' @param cell_types `meta.data` column name corresponding to cell types or clusters. If iteratively approximating the TOM, when specified the sequences of subsampled CCIM will be sampled proportionally to annotations present in this grouping.
 #' @param min.cell When `cell_types` is specified, the minimum number of cells in a cell type that will be included when generating each iterative CCIM (default: 3)
-#'
+#' @param lit_support Numeric. Only entries with curation_effort (number of unique database - citation pairs per interaction) greater than or equal to this value are retained. Default 7.
 #' @return When return.mat = T, returns a list of length 4 containing ligand-receptor covariance matrix, TOM, module lists, and intramodular connectivity. Otherwise, returns a list of length 2 containing only module lists and intramodular connectivity.
 #' @import qlcMatrix WGCNA flashClust dynamicTreeCut reshape2 pbapply
 #' @export
@@ -42,7 +42,7 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
                                 min.size = 5, plot.mods = F,
                                 tree.cut.quantile = 0.4,
                                 threads = NULL, cell_types = NULL,
-                                min.cell = 3) {
+                                min.cell = 3, lit_support = 7) {
   if(database=="custom") {
     if(is.null(ligands) | is.null(recepts)) {
       stop("To use custom database, please supply equidimensional character vectors of ligands and recepts")
@@ -54,7 +54,7 @@ InteractionPrograms <- function(object, assay = "SCT", slot = "data",
   } else if((!is.null(ligands) | !is.null(recepts)) & database != "custom") {
     stop("To use custom ligand or receptor lists, set database = 'custom'")
   } else {
-    lit.put <- scriabin::LoadLR(species = species, database = database)
+    lit.put <- scriabin::LoadLR(species = species, database = database, lit_support= lit_support)
     ligands <- as.character(lit.put[, "source_genesymbol"])
     recepts <- as.character(lit.put[, "target_genesymbol"])
   }
