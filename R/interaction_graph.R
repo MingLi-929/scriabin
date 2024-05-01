@@ -108,10 +108,10 @@ GenerateCCIM <- function(object, assay = "SCT", slot = "data",
       stop("NicheNet results must be included to perform CCIM weighting")
     }
     message("Weighting interaction graph")
-    if(class(nichenet_results) %notin% c("list","matrix")) {
+    if(all(class(nichenet_results) %notin% c("list","matrix"))) {
       stop("NicheNet results must be supplied as one of list or matrix")
     }
-    if(class(nichenet_results)=="list") {
+    if(any(class(nichenet_results) %in% c("list"))) {
       nichenet_results <- nichenet_results[names(nichenet_results) %in% receivers]
       nichenet_results <- bind_rows(lapply(nichenet_results, FUN = function(x) {
         results <- x[[1]] %>% pull(pearson)
@@ -121,7 +121,7 @@ GenerateCCIM <- function(object, assay = "SCT", slot = "data",
       nnm <- reshape2::melt(nichenet_results) %>% dplyr::filter(value>pearson.cutoff)
       colnames(nnm) <- c("cell","ligand","pearson")
     }
-    if(class(nichenet_results)[[1]]=="matrix") {
+    if(any(class(nichenet_results)%in% c("matrix"))) {
       nichenet_results <- nichenet_results[,receivers]
       nnm <- reshape2::melt(nichenet_results) %>% dplyr::filter(value>pearson.cutoff)
       colnames(nnm) <- c("ligand","cell","pearson")
